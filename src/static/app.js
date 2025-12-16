@@ -971,7 +971,8 @@ document.addEventListener("DOMContentLoaded", () => {
             await navigator.clipboard.writeText(textToCopy);
             showShareMessage("Link copied to clipboard!", "success");
           } else {
-            // Fallback for older browsers
+            // Fallback for older browsers using deprecated execCommand
+            // This is maintained for legacy browser support only
             const textArea = document.createElement("textarea");
             textArea.value = textToCopy;
             textArea.style.position = "fixed";
@@ -979,13 +980,17 @@ document.addEventListener("DOMContentLoaded", () => {
             document.body.appendChild(textArea);
             textArea.select();
             try {
-              document.execCommand("copy");
-              showShareMessage("Link copied to clipboard!", "success");
+              const successful = document.execCommand("copy");
+              if (successful) {
+                showShareMessage("Link copied to clipboard!", "success");
+              } else {
+                showShareMessage(
+                  "Could not copy. Please copy manually.",
+                  "error"
+                );
+              }
             } catch (err) {
-              showShareMessage(
-                "Could not copy. Please copy manually: " + textToCopy,
-                "error"
-              );
+              showShareMessage("Could not copy. Please copy manually.", "error");
             }
             document.body.removeChild(textArea);
           }
