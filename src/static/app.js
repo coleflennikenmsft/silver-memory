@@ -865,6 +865,9 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
+  // Share modal state
+  let currentShareHandlers = null;
+
   // Share modal functions
   function openShareModal(activityName, details) {
     // Create the modal if it doesn't exist
@@ -882,20 +885,20 @@ document.addEventListener("DOMContentLoaded", () => {
             <p id="share-activity-description"></p>
           </div>
           <div class="share-options">
-            <button class="share-option-btn twitter-share" title="Share on Twitter">
-              <span class="share-icon-social">🐦</span>
+            <button class="share-option-btn twitter-share" title="Share on Twitter" aria-label="Share on Twitter">
+              <span class="share-icon-social" aria-hidden="true">🐦</span>
               <span>Twitter</span>
             </button>
-            <button class="share-option-btn facebook-share" title="Share on Facebook">
-              <span class="share-icon-social">👍</span>
+            <button class="share-option-btn facebook-share" title="Share on Facebook" aria-label="Share on Facebook">
+              <span class="share-icon-social" aria-hidden="true">👍</span>
               <span>Facebook</span>
             </button>
-            <button class="share-option-btn email-share" title="Share via Email">
-              <span class="share-icon-social">📧</span>
+            <button class="share-option-btn email-share" title="Share via Email" aria-label="Share via Email">
+              <span class="share-icon-social" aria-hidden="true">📧</span>
               <span>Email</span>
             </button>
-            <button class="share-option-btn copy-link" title="Copy link to clipboard">
-              <span class="share-icon-social">📋</span>
+            <button class="share-option-btn copy-link" title="Copy link to clipboard" aria-label="Copy link to clipboard">
+              <span class="share-icon-social" aria-hidden="true">📋</span>
               <span>Copy Link</span>
             </button>
           </div>
@@ -926,56 +929,86 @@ document.addEventListener("DOMContentLoaded", () => {
     const formattedSchedule = formatSchedule(details);
     const shareText = `Check out ${activityName} at Mergington High School! ${details.description} Schedule: ${formattedSchedule}`;
 
-    // Update button handlers with current activity data
+    // Remove old event listeners if they exist
+    if (currentShareHandlers) {
+      const twitterBtn = shareModal.querySelector(".twitter-share");
+      const facebookBtn = shareModal.querySelector(".facebook-share");
+      const emailBtn = shareModal.querySelector(".email-share");
+      const copyBtn = shareModal.querySelector(".copy-link");
+
+      twitterBtn.removeEventListener("click", currentShareHandlers.twitter);
+      facebookBtn.removeEventListener("click", currentShareHandlers.facebook);
+      emailBtn.removeEventListener("click", currentShareHandlers.email);
+      copyBtn.removeEventListener("click", currentShareHandlers.copy);
+    }
+
+    // Create new handlers
+    const handlers = {
+      twitter: () => {
+        const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
+          shareText
+        )}&url=${encodeURIComponent(shareUrl)}`;
+        window.open(twitterUrl, "_blank", "width=550,height=420");
+      },
+      facebook: () => {
+        const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+          shareUrl
+        )}&quote=${encodeURIComponent(shareText)}`;
+        window.open(facebookUrl, "_blank", "width=550,height=420");
+      },
+      email: () => {
+        const subject = `Check out ${activityName} at Mergington High School`;
+        const body = `Hi!\n\nI thought you might be interested in this activity:\n\n${activityName}\n${details.description}\n\nSchedule: ${formattedSchedule}\n\nLearn more at: ${shareUrl}`;
+        window.location.href = `mailto:?subject=${encodeURIComponent(
+          subject
+        )}&body=${encodeURIComponent(body)}`;
+      },
+      copy: async () => {
+        const textToCopy = `${shareText}\n\n${shareUrl}`;
+        try {
+          // Try modern clipboard API first
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(textToCopy);
+            showShareMessage("Link copied to clipboard!", "success");
+          } else {
+            // Fallback for older browsers
+            const textArea = document.createElement("textarea");
+            textArea.value = textToCopy;
+            textArea.style.position = "fixed";
+            textArea.style.left = "-999999px";
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+              document.execCommand("copy");
+              showShareMessage("Link copied to clipboard!", "success");
+            } catch (err) {
+              showShareMessage(
+                "Could not copy. Please copy manually: " + textToCopy,
+                "error"
+              );
+            }
+            document.body.removeChild(textArea);
+          }
+        } catch (err) {
+          console.error("Failed to copy:", err);
+          showShareMessage("Failed to copy link. Please try again.", "error");
+        }
+      },
+    };
+
+    // Store handlers for cleanup
+    currentShareHandlers = handlers;
+
+    // Add new event listeners
     const twitterBtn = shareModal.querySelector(".twitter-share");
     const facebookBtn = shareModal.querySelector(".facebook-share");
     const emailBtn = shareModal.querySelector(".email-share");
     const copyBtn = shareModal.querySelector(".copy-link");
 
-    // Remove old listeners by cloning buttons
-    const newTwitterBtn = twitterBtn.cloneNode(true);
-    const newFacebookBtn = facebookBtn.cloneNode(true);
-    const newEmailBtn = emailBtn.cloneNode(true);
-    const newCopyBtn = copyBtn.cloneNode(true);
-
-    twitterBtn.parentNode.replaceChild(newTwitterBtn, twitterBtn);
-    facebookBtn.parentNode.replaceChild(newFacebookBtn, facebookBtn);
-    emailBtn.parentNode.replaceChild(newEmailBtn, emailBtn);
-    copyBtn.parentNode.replaceChild(newCopyBtn, copyBtn);
-
-    // Add new handlers
-    newTwitterBtn.addEventListener("click", () => {
-      const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(
-        shareText
-      )}&url=${encodeURIComponent(shareUrl)}`;
-      window.open(twitterUrl, "_blank", "width=550,height=420");
-    });
-
-    newFacebookBtn.addEventListener("click", () => {
-      const facebookUrl = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-        shareUrl
-      )}&quote=${encodeURIComponent(shareText)}`;
-      window.open(facebookUrl, "_blank", "width=550,height=420");
-    });
-
-    newEmailBtn.addEventListener("click", () => {
-      const subject = `Check out ${activityName} at Mergington High School`;
-      const body = `Hi!\n\nI thought you might be interested in this activity:\n\n${activityName}\n${details.description}\n\nSchedule: ${formattedSchedule}\n\nLearn more at: ${shareUrl}`;
-      window.location.href = `mailto:?subject=${encodeURIComponent(
-        subject
-      )}&body=${encodeURIComponent(body)}`;
-    });
-
-    newCopyBtn.addEventListener("click", async () => {
-      try {
-        const textToCopy = `${shareText}\n\n${shareUrl}`;
-        await navigator.clipboard.writeText(textToCopy);
-        showShareMessage("Link copied to clipboard!", "success");
-      } catch (err) {
-        console.error("Failed to copy:", err);
-        showShareMessage("Failed to copy link. Please try again.", "error");
-      }
-    });
+    twitterBtn.addEventListener("click", handlers.twitter);
+    facebookBtn.addEventListener("click", handlers.facebook);
+    emailBtn.addEventListener("click", handlers.email);
+    copyBtn.addEventListener("click", handlers.copy);
 
     // Show the modal
     shareModal.classList.remove("hidden");
